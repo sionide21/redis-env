@@ -37,6 +37,20 @@ Now run your app using redis-env
 redis-env exec --project my-awesome-app rails s
 ```
 
+### Programmatic Usage
+
+```
+require "redis_env"
+client = RedisEnv.new(Redis.new, "my-awesome-app")
+
+# Write keys
+client.set("IMPORTANT_KEY", "VALUE")
+client.bulk_set("IMPORTANT_KEY" => "NEW VALUE", "ANOTHER_KEY" => "banana")
+
+# Use keys
+SomeRestClient.new(url: client.variables["RELEVENT_URL"])
+```
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/sionide21/redis-env.

@@ -2,30 +2,31 @@
 require "thor"
 require "redis"
 require "dotenv"
+require "redis_env"
 
-class RedisEnv < Thor
+class CLI < Thor
   class_option :project, type: :string, desc: "The project these variables are for"
   class_option :redis, type: :string, desc: "The url of the redis server", default: "redis://localhost:6379/0"
 
   desc "set NAME VALUE", "Set an environment variable called NAME to VALUE"
   def set(name, value)
-    client.hset(namespace, name, value)
+    client.set(name, value)
   end
 
   desc "load FILE", "Read an env file and load it into redis"
   def load(file)
     vars = Dotenv::Environment.new(file)
-    client.mapped_hmset(namespace, vars)
+    client.bulk_set(vars)
   end
 
   desc "unset NAME", "Remove an environment variable called NAME"
   def unset(name)
-    client.hdel(namespace, name)
+    client.unset(name)
   end
 
   desc "clear", "Remove all environment variables"
   def clear
-    client.del(namespace)
+    client.clear
   end
 
   desc "list", "List all variables"
@@ -43,21 +44,13 @@ class RedisEnv < Thor
 
   private
 
-  def namespace
-    "redis-env:#{project}"
-  end
-
-  def project
-    options[:project] || "__default__"
-  end
-
   def client
-    @client ||= Redis.new(url: options[:redis])
+    @client ||= RedisEnv.new(Redis.new(url: options[:redis]), options[:project])
   end
 
   def env
-    @env ||= client.hgetall(namespace)
+    @env ||= client.variables
   end
 end
 
-RedisEnv.start(ARGV)
+CLI.start(ARGV)
