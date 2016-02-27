@@ -1,0 +1,63 @@
+#!/usr/bin/env ruby
+require "thor"
+require "redis"
+require "dotenv"
+
+class RedisEnv < Thor
+  class_option :project, type: :string, desc: "The project these variables are for"
+  class_option :redis, type: :string, desc: "The url of the redis server", default: "redis://localhost:6379/0"
+
+  desc "set NAME VALUE", "Set an environment variable called NAME to VALUE"
+  def set(name, value)
+    client.hset(namespace, name, value)
+  end
+
+  desc "load FILE", "Read an env file and load it into redis"
+  def load(file)
+    vars = Dotenv::Environment.new(file)
+    client.mapped_hmset(namespace, vars)
+  end
+
+  desc "unset NAME", "Remove an environment variable called NAME"
+  def unset(name)
+    client.hdel(namespace, name)
+  end
+
+  desc "clear", "Remove all environment variables"
+  def clear
+    client.del(namespace)
+  end
+
+  desc "list", "List all variables"
+  def list
+    width = env.keys.map(&:length).max
+    env.sort_by(&:first).each do |k, v|
+      puts [k.ljust(width), v].join("\t")
+    end
+  end
+
+  desc "exec COMMAND", "Run a COMMAND within the environment"
+  def exec(*command)
+    super(env, command.join(" "))
+  end
+
+  private
+
+  def namespace
+    "redis-env:#{project}"
+  end
+
+  def project
+    options[:project] || "__default__"
+  end
+
+  def client
+    @client ||= Redis.new(url: options[:redis])
+  end
+
+  def env
+    @env ||= client.hgetall(namespace)
+  end
+end
+
+RedisEnv.start(ARGV)
